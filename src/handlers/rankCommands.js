@@ -88,42 +88,72 @@ async function rulesCommand(ctx, groupId) {
   await ctx.reply(`📜 قوانین گروه:\n\n${settings.rules_text}`);
 }
 
-// 4. لیزه اسپویلر
+// 4. لیزه اسپویلر (نسخه ارتقایافته)
+// - اگر پیام هدف خودش ریپلای روی پیام دیگری بود، محتوای اسپویلرشده هم روی همون
+//   پیام قبلی (پدربزرگ) ریپلای می‌شود تا زنجیره مکالمه حفظ شود.
+// - تمام محتوای پیام (چه رسانه چه کپشن/متن) اسپویلر می‌شود.
+// - بعد از ارسال، یک گزارش شامل صاحب پیام اصلی و درخواست‌دهنده، روی همان پیام اسپویلرشده ریپلای می‌شود.
 async function spoilerCommand(ctx, groupId, actor) {
   const reply = ctx.message.reply_to_message;
   if (!reply) {
     await ctx.reply(t('general.needReply'));
     return;
   }
+
+  // اگر پیام هدف خودش ریپلای روی پیام دیگری بود، همون زنجیره حفظ می‌شود
+  const grandParentId = reply.reply_to_message ? reply.reply_to_message.message_id : undefined;
+  const replyParams = grandParentId ? { reply_parameters: { message_id: grandParentId } } : {};
+  const caption = reply.caption ? `<tg-spoiler>${escapeHtmlLocal(reply.caption)}</tg-spoiler>` : undefined;
+
+  let sentMessage;
   try {
     if (reply.photo) {
       const fileId = reply.photo[reply.photo.length - 1].file_id;
-      await ctx.telegram.sendPhoto(ctx.chat.id, fileId, {
-        caption: reply.caption,
+      sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, fileId, {
+        caption,
+        parse_mode: caption ? 'HTML' : undefined,
         has_spoiler: true,
-        reply_parameters: reply.reply_to_message ? { message_id: reply.reply_to_message.message_id } : undefined,
+        ...replyParams,
       });
     } else if (reply.video) {
-      await ctx.telegram.sendVideo(ctx.chat.id, reply.video.file_id, {
-        caption: reply.caption,
+      sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, reply.video.file_id, {
+        caption,
+        parse_mode: caption ? 'HTML' : undefined,
         has_spoiler: true,
+        ...replyParams,
       });
     } else if (reply.animation) {
-      await ctx.telegram.sendAnimation(ctx.chat.id, reply.animation.file_id, {
-        caption: reply.caption,
+      sentMessage = await ctx.telegram.sendAnimation(ctx.chat.id, reply.animation.file_id, {
+        caption,
+        parse_mode: caption ? 'HTML' : undefined,
         has_spoiler: true,
+        ...replyParams,
       });
     } else if (reply.text) {
-      await ctx.telegram.sendMessage(ctx.chat.id, `<tg-spoiler>${escapeHtmlLocal(reply.text)}</tg-spoiler>`, {
-        parse_mode: 'HTML',
-      });
+      sentMessage = await ctx.telegram.sendMessage(
+        ctx.chat.id,
+        `<tg-spoiler>${escapeHtmlLocal(reply.text)}</tg-spoiler>`,
+        { parse_mode: 'HTML', ...replyParams }
+      );
     } else {
       await ctx.reply(t('rankCommands.spoiler.unsupported'));
       return;
     }
+
     await ctx.deleteMessage(reply.message_id).catch(() => {});
+    await ctx.deleteMessage(ctx.message.message_id).catch(() => {});
+
+    // گزارش اسپویلر: صاحب پیام اصلی + درخواست‌دهنده، روی خود پیام اسپویلرشده ریپلای می‌شود
+    const reportText = [
+      t('rankCommands.spoiler.reportAuthor', { author: mentionUser(reply.from) }),
+      t('rankCommands.spoiler.reportRequester', { requester: mentionUser(actor) }),
+    ].join('\n');
+    await ctx.telegram.sendMessage(ctx.chat.id, reportText, {
+      parse_mode: 'HTML',
+      reply_parameters: { message_id: sentMessage.message_id },
+    });
+
     await activityService.logActivity({ groupId, actorUserId: actor.id, action: 'spoiler', targetUserId: reply.from?.id });
-    await ctx.reply(t('rankCommands.spoiler.success'));
   } catch (err) {
     console.error('[spoilerCommand] خطا:', err.message);
     await ctx.reply(t('general.actionFailed'));
@@ -247,7 +277,21 @@ async function muteCommand(ctx, groupId, actor, minutes) {
   const untilDate = Math.floor(Date.now() / 1000) + minutes * 60;
   try {
     await ctx.restrictChatMember(target.id, {
-      permissions: { can_send_messages: false },
+      permissions: {
+        can_send_messages: false,
+        can_send_audios: false,
+        can_send_documents: false,
+        can_send_photos: false,
+        can_send_videos: false,
+        can_send_video_notes: false,
+        can_send_voice_notes: false,
+        can_send_polls: false,
+        can_send_other_messages: false,
+        can_add_web_page_previews: false,
+        can_change_info: false,
+        can_invite_users: false,
+        can_pin_messages: false,
+      },
       until_date: untilDate,
     });
   } catch (err) {

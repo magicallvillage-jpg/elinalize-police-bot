@@ -15,6 +15,7 @@ const wakeWordParser = require('./handlers/wakeWordParser');
 const commandRouter = require('./handlers/commandRouter');
 const callbackHandler = require('./handlers/callbackHandler');
 const panelHandlers = require('./handlers/panelHandlers');
+const userCommands = require('./handlers/userCommands');
 
 const roleService = require('./services/roleService');
 const groupRegistryService = require('./services/groupRegistryService');
@@ -59,6 +60,24 @@ bot.on('text', async (ctx) => {
   if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') return;
 
   const groupId = ctx.chat.id;
+
+  // ۱) آیا این پیام، پاسخ به یک force-reply در انتظار است؟ (مثل تغییر نام مقام از پنل)
+  try {
+    const handledRename = await panelHandlers.handleRenamePendingReply(ctx);
+    if (handledRename) return;
+  } catch (err) {
+    console.error('[handleRenamePendingReply] خطا:', err);
+  }
+
+  // ۲) آیا این کاربر بعد از "لیزه سگتم" منتظر پاسخ "هاپ هاپ" بود؟ در این صورت همین پیام
+  //    مصرف می‌شود (چه دستور دیگری باشد چه نباشد) و پردازش عادی ادامه پیدا نمی‌کند.
+  try {
+    const handledHop = await userCommands.resolveDogLoveChallenge(ctx, groupId);
+    if (handledHop) return;
+  } catch (err) {
+    console.error('[resolveDogLoveChallenge] خطا:', err);
+  }
+
   const parsed = await wakeWordParser.extractCommand(groupId, text);
   if (!parsed.matched) return; // پیام عادی گروه - ربات کاری بهش نداره
 

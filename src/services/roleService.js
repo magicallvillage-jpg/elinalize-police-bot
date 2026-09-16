@@ -20,6 +20,7 @@ const PERMISSION_KEYS = [
   'criminalList', // لیست مجرمین
   'recentActivity', // چه خبر
   'setRank', // تعیین/تغییر مقام دیگران (فقط ادمین مادر به‌صورت پیش‌فرض)
+  'renameRank', // تغییر نام مقام‌ها از پنل مدیریتی
   'panelAccess', // دسترسی به پنل مدیریت در گروه/پی‌وی
 ];
 
@@ -50,6 +51,19 @@ async function updateRankPermissions(groupId, rankId, permissions) {
 /** به‌روزرسانی سطح (priority) یک مقام برای تعیین سلسله‌مراتب */
 async function updateRankPriority(groupId, rankId, priority) {
   await query(`UPDATE ${P}ranks SET priority = ? WHERE id = ? AND group_id = ?`, [priority, rankId, groupId]);
+}
+
+/** تغییر نام یک مقام (قابلیت جدید - از پنل مدیریتی یا دستور متنی) */
+async function renameRank(groupId, rankId, newName) {
+  const clash = await query(`SELECT id FROM ${P}ranks WHERE group_id = ? AND name = ? AND id <> ? LIMIT 1`, [
+    groupId,
+    newName,
+    rankId,
+  ]);
+  if (clash[0]) {
+    throw new Error('DUPLICATE_NAME');
+  }
+  await query(`UPDATE ${P}ranks SET name = ? WHERE id = ? AND group_id = ?`, [newName, rankId, groupId]);
 }
 
 function normalizePermissions(input = {}) {
@@ -164,6 +178,7 @@ module.exports = {
   createRank,
   updateRankPermissions,
   updateRankPriority,
+  renameRank,
   getRankByName,
   getRankById,
   listRanks,

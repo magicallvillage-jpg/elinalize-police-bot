@@ -122,6 +122,31 @@ async function initDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // وضعیت چالش "لیزه سگتم" -> "هاپ هاپ": نگهداری اینکه آیا منتظر پاسخ کاربر هستیم و کول‌داون هر ۱ ساعت
+  await query(`
+    CREATE TABLE IF NOT EXISTS ${P}hop_state (
+      group_id BIGINT NOT NULL,
+      user_id BIGINT NOT NULL,
+      awaiting BOOLEAN NOT NULL DEFAULT FALSE,
+      prompted_at TIMESTAMP NULL DEFAULT NULL,
+      attempt_started_at TIMESTAMP NULL DEFAULT NULL,
+      PRIMARY KEY (group_id, user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  // لیست توهین‌های شوخی‌گروهی برای دستور "لیزه توهین" - علاوه بر لیست پیش‌فرض داخل messages.json،
+  // ادمین مادر می‌تواند مورد اضافه/حذف کند که این‌ها اینجا ذخیره می‌شوند
+  await query(`
+    CREATE TABLE IF NOT EXISTS ${P}insults (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      group_id BIGINT NOT NULL,
+      text VARCHAR(500) NOT NULL,
+      created_by BIGINT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_group_text (group_id, text)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
   console.log('[DB] تمام جداول الینالیزه بررسی/ساخته شدند.');
 }
 

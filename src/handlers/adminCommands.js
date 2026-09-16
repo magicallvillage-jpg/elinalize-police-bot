@@ -4,6 +4,7 @@
 const roleService = require('../services/roleService');
 const groupSettingsService = require('../services/groupSettingsService');
 const activityService = require('../services/activityService');
+const insultService = require('../services/insultService');
 const { requireReplyTarget, checkHierarchy } = require('./rankCommands');
 const { t } = require('../utils/messages');
 const { mentionUser } = require('../utils/helpers');
@@ -145,6 +146,32 @@ async function setRulesCommand(ctx, groupId, actor, rest) {
   await ctx.reply('✅ قوانین گروه به‌روزرسانی شد.');
 }
 
+/** "تنظیم توهین <متن>" - افزودن یک توهین جدید به لیست شوخی گروهی - فقط ادمین مادر */
+async function addInsultCommand(ctx, groupId, actor, rest) {
+  if (!roleService.isMotherAdmin(actor.id)) {
+    await ctx.reply(t('general.noPermission'));
+    return;
+  }
+  const text = rest.trim();
+  if (!text) {
+    await ctx.reply(t('userCommands.insult.insultTextRequired'));
+    return;
+  }
+  await insultService.addInsult(groupId, text, actor.id);
+  await ctx.reply(t('userCommands.insult.insultAdded'));
+}
+
+/** "حذف توهین <متن>" - حذف یک توهین سفارشی از لیست - فقط ادمین مادر */
+async function removeInsultCommand(ctx, groupId, actor, rest) {
+  if (!roleService.isMotherAdmin(actor.id)) {
+    await ctx.reply(t('general.noPermission'));
+    return;
+  }
+  const text = rest.trim();
+  const removed = await insultService.removeInsult(groupId, text);
+  await ctx.reply(t(removed ? 'userCommands.insult.insultRemoved' : 'userCommands.insult.insultNotFound'));
+}
+
 module.exports = {
   createRankCommand,
   setRankCommand,
@@ -153,4 +180,6 @@ module.exports = {
   removeWakeWordCommand,
   setWarningLimitCommand,
   setRulesCommand,
+  addInsultCommand,
+  removeInsultCommand,
 };

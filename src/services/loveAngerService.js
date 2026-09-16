@@ -83,6 +83,22 @@ async function applySpecialRankGrantedEffect(groupId, userId) {
   return { love: newLove, anger: state.anger };
 }
 
+/** موفقیت در چالش "هاپ هاپ" بعد از "لیزه سگتم": ۵٪ افزایش علاقه (مستقل از کول‌داون دوست‌دارم) */
+async function applyHopSuccessEffect(groupId, userId) {
+  const state = await getState(groupId, userId);
+  const newLove = clamp(state.love + 5, 0, 100);
+  await setState(groupId, userId, newLove, state.anger);
+  return { love: newLove, anger: state.anger };
+}
+
+/** شکست در چالش "هاپ هاپ": ۱۰٪ کاهش علاقه */
+async function applyHopFailureEffect(groupId, userId) {
+  const state = await getState(groupId, userId);
+  const newLove = clamp(state.love - 10, 0, 100);
+  await setState(groupId, userId, newLove, state.anger);
+  return { love: newLove, anger: state.anger };
+}
+
 /** کاهش روزانه عصبانیت همه کاربران - توسط cron یک‌بار در روز صدا زده می‌شود */
 async function applyDailyAngerDecay() {
   await query(`UPDATE ${P}love_anger SET anger = GREATEST(anger - ?, 0)`, [cfg.angerDailyDecay]);
@@ -94,5 +110,7 @@ module.exports = {
   applyReportApprovedEffect,
   applyKickEffect,
   applySpecialRankGrantedEffect,
+  applyHopSuccessEffect,
+  applyHopFailureEffect,
   applyDailyAngerDecay,
 };

@@ -63,6 +63,8 @@ const COMMANDS = [
   },
   { regex: /^پروفایل$/, permission: null, handler: (ctx, g) => userCommands.profileCommand(ctx, g) },
   { regex: /^خسته ام$/, permission: null, handler: (ctx) => userCommands.tiredCommand(ctx) },
+  { regex: /^سگتم$/, permission: null, handler: (ctx, g) => userCommands.dogLoveCommand(ctx, g) },
+  { regex: /^توهین$/, permission: null, handler: (ctx, g) => userCommands.insultCommand(ctx, g) },
 
   // --- دستور دوگانه: اخطار (مقام‌دار مستقیم اخطار می‌ده / کاربر عادی درخواست گزارش می‌ده) ---
   {
@@ -110,6 +112,16 @@ const COMMANDS = [
     regex: /^تنظیم قوانین\s+(.+)$/,
     permission: 'special:admin',
     handler: (ctx, g, a, m) => adminCommands.setRulesCommand(ctx, g, a, m[1]),
+  },
+  {
+    regex: /^تنظیم توهین\s+(.+)$/,
+    permission: 'special:admin',
+    handler: (ctx, g, a, m) => adminCommands.addInsultCommand(ctx, g, a, m[1]),
+  },
+  {
+    regex: /^حذف توهین\s+(.+)$/,
+    permission: 'special:admin',
+    handler: (ctx, g, a, m) => adminCommands.removeInsultCommand(ctx, g, a, m[1]),
   },
   {
     regex: /^پنل$/,

@@ -43,6 +43,9 @@ async function handleCallbackQuery(ctx) {
         await ctx.answerCbQuery();
         await panelHandlers.backToPanelList(ctx, Number(args[0]));
         break;
+      case 'panel_rename_prompt':
+        await panelHandlers.promptRenameRank(ctx, Number(args[0]), Number(args[1]));
+        break;
       case 'panel_help_create':
         await ctx.answerCbQuery();
         await ctx.reply(
