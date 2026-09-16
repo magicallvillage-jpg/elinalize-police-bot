@@ -1,0 +1,23 @@
+{
+  "name": "elinalize-bot",
+  "version": "1.0.0",
+  "description": "ربات تلگرامی الینالیزه - دستیار مدیریت گروه، سرگرمی و ثبت داده",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "mysql2": "^3.11.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
