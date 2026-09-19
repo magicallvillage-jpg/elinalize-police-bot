@@ -120,6 +120,12 @@
       "defaults": [
         "🖕"
       ]
+    },
+    "pamPolice": {
+      "caption": "{target} \n پام پلیس.",
+      "lickButton": "👅 لیس زدن",
+      "notYourTurn": "این دکمه برای تو نیست 😏",
+      "lickReport": "😹 {target} پای الینالیزه لیس زد و ۵٪ علاقه‌ی الینالیزه بهش اضافه شد."
     }
   }
 }

@@ -6,6 +6,8 @@ const loveAngerService = require('../services/loveAngerService');
 const activityService = require('../services/activityService');
 const rankCommands = require('./rankCommands');
 const panelHandlers = require('./panelHandlers');
+const funFeatures = require('./funFeatures');
+const mediaPanelHandlers = require('./mediaPanelHandlers');
 const { t } = require('../utils/messages');
 
 async function handleCallbackQuery(ctx) {
@@ -14,6 +16,12 @@ async function handleCallbackQuery(ctx) {
   const groupId = ctx.chat ? ctx.chat.id : null;
 
   try {
+    // پنل مدیریت عکس/استیکر (فقط ادمین مادر در پیوی؛ بررسی دسترسی داخل خود ماژول انجام می‌شود)
+    if (action.startsWith('media_')) {
+      await mediaPanelHandlers.handleCallback(ctx, action, args);
+      return;
+    }
+
     switch (action) {
       case 'report_approve':
         await handleReportDecision(ctx, Number(args[0]), 'approved');
@@ -45,6 +53,9 @@ async function handleCallbackQuery(ctx) {
         break;
       case 'panel_rename_prompt':
         await panelHandlers.promptRenameRank(ctx, Number(args[0]), Number(args[1]));
+        break;
+      case 'pam_lick':
+        await funFeatures.handlePamLick(ctx, Number(args[0]), Number(args[1]));
         break;
       case 'panel_help_create':
         await ctx.answerCbQuery();

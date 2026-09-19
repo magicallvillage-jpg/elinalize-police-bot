@@ -16,9 +16,12 @@ const commandRouter = require('./handlers/commandRouter');
 const callbackHandler = require('./handlers/callbackHandler');
 const panelHandlers = require('./handlers/panelHandlers');
 const userCommands = require('./handlers/userCommands');
+const channelCommentaryHandler = require('./handlers/channelCommentaryHandler');
+const funFeatures = require('./handlers/funFeatures');
+const mediaPanelHandlers = require('./handlers/mediaPanelHandlers');
 
-const roleService = require('./services/roleService');
 const groupRegistryService = require('./services/groupRegistryService');
+const mediaService = require('./services/mediaService');
 const loveAngerService = require('./services/loveAngerService');
 const { t } = require('./utils/messages');
 
@@ -32,6 +35,15 @@ const bot = new Telegraf(config.botToken);
 // --- میان‌افزارهای عمومی (روی همه آپدیت‌ها اجرا می‌شوند) ---
 bot.use(groupRegistryMiddleware);
 bot.use(banEnforcementMiddleware);
+
+// --- روی هر پیام گروه (هر نوعی: متن، عکس، استیکر و ...) اجرا می‌شود ---
+// ۱) تشخیص پست‌های فورواردشده خودکار از کانال تنظیم‌شده (برای کامنت‌گذاری هوش مصنوعی)
+// ۲) شمارش پیام‌ها برای قابلیت‌های سرگرمی (استیکر بعد از N پیام / پام پلیس)
+bot.on('message', async (ctx, next) => {
+  await channelCommentaryHandler.detectAndSchedule(ctx).catch((err) => console.error('[channelCommentary]', err));
+  await funFeatures.handleGroupActivity(ctx).catch((err) => console.error('[funFeatures]', err));
+  return next();
+});
 
 // --- دستور /start در پیوی ---
 bot.start(async (ctx) => {
@@ -106,18 +118,29 @@ async function handlePrivateText(ctx, text) {
   const rest = trimmed.slice(matchedWord.length).trim();
 
   if (rest === 'پنل') {
-    const isMother = roleService.isMotherAdmin(ctx.from.id);
-    const groups = await groupRegistryService.listGroupsForPanelAccess(ctx.from.id, isMother);
-    if (!groups.length) {
-      await ctx.reply('هیچ گروهی که توش دسترسی پنل داشته باشی پیدا نکردم.');
-      return;
-    }
-    const buttons = groups.map((g) => [
-      { text: g.title || String(g.group_id), callback_data: `panel_select_group:${g.group_id}` },
-    ]);
-    await ctx.reply('کدوم گروه رو می‌خوای مدیریت کنی؟', { reply_markup: { inline_keyboard: buttons } });
+    // منوی پنل در پیوی: لیست گروه‌ها + (برای ادمین مادر) مدیریت عکس‌ها و استیکرها
+    await mediaPanelHandlers.openPrivateRoot(ctx);
   }
 }
+
+// --- عکس و استیکر در پیوی: فقط برای «حالت افزودن» پنل ادمین مادر (بقیه نادیده گرفته می‌شوند) ---
+bot.on('photo', async (ctx) => {
+  try {
+    await mediaPanelHandlers.handleIncomingPhoto(ctx);
+  } catch (err) {
+    console.error('[mediaPanel:photo] خطا:', err);
+    await ctx.reply(t('general.actionFailed')).catch(() => {});
+  }
+});
+
+bot.on('sticker', async (ctx) => {
+  try {
+    await mediaPanelHandlers.handleIncomingSticker(ctx);
+  } catch (err) {
+    console.error('[mediaPanel:sticker] خطا:', err);
+    await ctx.reply(t('general.actionFailed')).catch(() => {});
+  }
+});
 
 // --- callback_query دکمه‌های شیشه‌ای ---
 bot.on('callback_query', async (ctx) => {
@@ -141,9 +164,20 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
+// --- کرون‌جاب هر ۳۰ ثانیه: پردازش صف کامنت‌گذاری هوش مصنوعی روی پست‌های کانال ---
+cron.schedule('*/30 * * * * *', async () => {
+  if (!config.channelCommentary.enabled) return;
+  try {
+    await channelCommentaryHandler.processDuePosts(bot.telegram);
+  } catch (err) {
+    console.error('[cron] خطا در پردازش صف کامنت کانال:', err.message);
+  }
+});
+
 async function main() {
   await initDatabase();
   await groupRegistryService.ensureTable();
+  await mediaService.ensureTables();
   await bot.launch();
   console.log('🤖 ربات الینالیزه با موفقیت اجرا شد.');
 }

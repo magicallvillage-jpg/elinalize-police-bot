@@ -99,6 +99,17 @@ async function applyHopFailureEffect(groupId, userId) {
   return { love: newLove, anger: state.anger };
 }
 
+/**
+ * تغییر مستقیم درصد علاقه به‌اندازه delta (می‌تواند منفی باشد)، مستقل از هر کول‌داونی.
+ * برای قابلیت‌هایی مثل «لیس زدن پام پلیس» استفاده می‌شود.
+ */
+async function applyLoveDelta(groupId, userId, delta) {
+  const state = await getState(groupId, userId);
+  const newLove = clamp(state.love + delta, 0, 100);
+  await setState(groupId, userId, newLove, state.anger);
+  return { love: newLove, anger: state.anger };
+}
+
 /** کاهش روزانه عصبانیت همه کاربران - توسط cron یک‌بار در روز صدا زده می‌شود */
 async function applyDailyAngerDecay() {
   await query(`UPDATE ${P}love_anger SET anger = GREATEST(anger - ?, 0)`, [cfg.angerDailyDecay]);
@@ -112,5 +123,6 @@ module.exports = {
   applySpecialRankGrantedEffect,
   applyHopSuccessEffect,
   applyHopFailureEffect,
+  applyLoveDelta,
   applyDailyAngerDecay,
 };

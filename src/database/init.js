@@ -147,6 +147,23 @@ async function initDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // صف پست‌های کانال که باید بعد از تاخیر تنظیم‌شده (پیش‌فرض ۲ دقیقه) روی نسخه فوروارد‌شده‌شان
+  // در گروه بحث، توسط هوش مصنوعی کامنت گذاشته شود
+  await query(`
+    CREATE TABLE IF NOT EXISTS ${P}pending_channel_posts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      channel_id BIGINT NOT NULL,
+      channel_message_id BIGINT NOT NULL,
+      group_id BIGINT NOT NULL,
+      group_message_id BIGINT NOT NULL,
+      post_text TEXT DEFAULT NULL,
+      due_at TIMESTAMP NOT NULL,
+      status ENUM('pending','commented','skipped_deleted','error') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_channel_msg (channel_id, channel_message_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
   console.log('[DB] تمام جداول الینالیزه بررسی/ساخته شدند.');
 }
 

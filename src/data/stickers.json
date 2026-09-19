@@ -1,0 +1,13 @@
+{
+  "_readme": "هر آیتم یک 'بسته استیکر' است. type='single' یعنی فقط یک استیکر با fileIds[0] ارسال می‌شود. type='sequence' یعنی چند استیکر پشت سر هم و به ترتیب آرایه ارسال می‌شوند (مثلاً یک کاراکتر که هر تکه بدنش یک استیکر جداست). برای گرفتن file_id یک استیکر: آن را برای ربات‌هایی مثل @RawDataBot یا @userinfobot فوروارد کنید و مقدار file_id را از خروجی کپی کنید. تا وقتی حداقل یک بسته اینجا تعریف نشده باشد، این قابلیت عملاً کاری انجام نمی‌دهد.",
+  "stickerPacks": [
+    {
+      "type": "single",
+      "fileIds": ["PUT_YOUR_STICKER_FILE_ID_HERE"]
+    },
+    {
+      "type": "sequence",
+      "fileIds": ["PUT_PART_1_FILE_ID_HERE", "PUT_PART_2_FILE_ID_HERE", "PUT_PART_3_FILE_ID_HERE"]
+    }
+  ]
+}

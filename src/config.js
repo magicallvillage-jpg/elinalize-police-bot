@@ -57,6 +57,31 @@ const config = {
     maxMinutes: 5 * 60,
   },
 
+  // --- قابلیت ۱: کامنت‌گذاری هوش‌مصنوعی روی پست‌های کانال (خاموش/روشن‌شدنی) ---
+  channelCommentary: {
+    enabled: (process.env.CHANNEL_COMMENTARY_ENABLED || 'false').toLowerCase() === 'true',
+    // آیدی عددی کانال (منفی، مثل -1001234567890) - باید ربات ادمین کانال باشد
+    channelId: process.env.CHANNEL_ID ? Number(process.env.CHANNEL_ID) : null,
+    // چقدر بعد از پست صبر کنیم قبل از کامنت گذاشتن (پیش‌فرض ۲ دقیقه طبق نیازمندی)
+    delayMs: Number(process.env.CHANNEL_COMMENTARY_DELAY_MS || 2 * 60 * 1000),
+    openRouterApiKey: process.env.OPENROUTER_API_KEY,
+    // یک مدل رایگان OpenRouter؛ در .env قابل تغییر است
+    openRouterModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
+  },
+
+  // --- قابلیت ۲: ارسال استیکر (تکی یا چندبخشی) بعد از N پیام در گروه ---
+  stickerBurst: {
+    enabled: (process.env.STICKER_BURST_ENABLED || 'true').toLowerCase() === 'true',
+    messageThreshold: Number(process.env.STICKER_BURST_THRESHOLD || 40),
+  },
+
+  // --- قابلیت ۳: شوخی "پام پلیس" بعد از N پیام در گروه ---
+  pamPolice: {
+    enabled: (process.env.PAM_POLICE_ENABLED || 'true').toLowerCase() === 'true',
+    messageThreshold: Number(process.env.PAM_POLICE_THRESHOLD || 60),
+    loveIncreaseOnLick: 5,
+  },
+
   logLevel: process.env.LOG_LEVEL || 'info',
 };
 
