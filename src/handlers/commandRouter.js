@@ -8,6 +8,7 @@ const rankCommands = require('./rankCommands');
 const userCommands = require('./userCommands');
 const adminCommands = require('./adminCommands');
 const panelHandlers = require('./panelHandlers');
+const meowCommands = require('./meowCommands');
 const { t } = require('../utils/messages');
 
 /**
@@ -65,6 +66,7 @@ const COMMANDS = [
   { regex: /^خسته ام$/, permission: null, handler: (ctx) => userCommands.tiredCommand(ctx) },
   { regex: /^سگتم$/, permission: null, handler: (ctx, g) => userCommands.dogLoveCommand(ctx, g) },
   { regex: /^توهین$/, permission: null, handler: (ctx, g) => userCommands.insultCommand(ctx, g) },
+  { regex: /^میو$/, permission: null, handler: (ctx, g) => meowCommands.meowCommand(ctx, g) },
 
   // --- دستور دوگانه: اخطار (مقام‌دار مستقیم اخطار می‌ده / کاربر عادی درخواست گزارش می‌ده) ---
   {
