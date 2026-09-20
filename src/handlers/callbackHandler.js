@@ -8,6 +8,7 @@ const rankCommands = require('./rankCommands');
 const panelHandlers = require('./panelHandlers');
 const funFeatures = require('./funFeatures');
 const mediaPanelHandlers = require('./mediaPanelHandlers');
+const chatTestHandlers = require('./chatTestHandlers');
 const { t } = require('../utils/messages');
 
 async function handleCallbackQuery(ctx) {
@@ -16,6 +17,10 @@ async function handleCallbackQuery(ctx) {
   const groupId = ctx.chat ? ctx.chat.id : null;
 
   try {
+    if (action.startsWith('chat_')) {
+      await chatTestHandlers.handleCallback(ctx, action);
+      return;
+    }
     // پنل مدیریت عکس/استیکر (فقط ادمین مادر در پیوی؛ بررسی دسترسی داخل خود ماژول انجام می‌شود)
     if (action.startsWith('media_')) {
       await mediaPanelHandlers.handleCallback(ctx, action, args);
