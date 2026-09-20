@@ -16,13 +16,17 @@ const commandRouter = require('./handlers/commandRouter');
 const callbackHandler = require('./handlers/callbackHandler');
 const panelHandlers = require('./handlers/panelHandlers');
 const userCommands = require('./handlers/userCommands');
+const meowCommands = require('./handlers/meowCommands');
 const channelCommentaryHandler = require('./handlers/channelCommentaryHandler');
 const funFeatures = require('./handlers/funFeatures');
 const mediaPanelHandlers = require('./handlers/mediaPanelHandlers');
+const chatTestHandlers = require('./handlers/chatTestHandlers');
 
 const groupRegistryService = require('./services/groupRegistryService');
 const mediaService = require('./services/mediaService');
+const meowService = require('./services/meowService');
 const loveAngerService = require('./services/loveAngerService');
+const aiClient = require('./services/aiClient');
 const { t } = require('./utils/messages');
 
 if (!config.botToken) {
@@ -62,7 +66,7 @@ bot.on('text', async (ctx) => {
   const text = ctx.message.text;
   if (!text) return;
 
-  // پیوی: فقط دستور پنل پشتیبانی می‌شود (برای انتخاب گروه)
+  // پیوی: دستور پنل + حالت «تست صحبت با الینالیزه» (فقط ادمین مادر)
   if (ctx.chat.type === 'private') {
     await handlePrivateText(ctx, text);
     return;
@@ -90,6 +94,14 @@ bot.on('text', async (ctx) => {
     console.error('[resolveDogLoveChallenge] خطا:', err);
   }
 
+  // ۳) جدید: همین منطق برای "لیزه میو" - منتظر پاسخ "میو" بعد از چالش
+  try {
+    const handledMeow = await meowCommands.resolveMeowChallenge(ctx, groupId);
+    if (handledMeow) return;
+  } catch (err) {
+    console.error('[resolveMeowChallenge] خطا:', err);
+  }
+
   const parsed = await wakeWordParser.extractCommand(groupId, text);
   if (!parsed.matched) return; // پیام عادی گروه - ربات کاری بهش نداره
 
@@ -114,12 +126,21 @@ async function handlePrivateText(ctx, text) {
   const wakeWords = config.defaultWakeWords;
   const trimmed = text.trim();
   const matchedWord = wakeWords.find((w) => trimmed === w || trimmed.startsWith(w + ' '));
-  if (!matchedWord) return;
-  const rest = trimmed.slice(matchedWord.length).trim();
+  const rest = matchedWord ? trimmed.slice(matchedWord.length).trim() : '';
 
-  if (rest === 'پنل') {
-    // منوی پنل در پیوی: لیست گروه‌ها + (برای ادمین مادر) مدیریت عکس‌ها و استیکرها
+  if (matchedWord && rest === 'پنل') {
+    // منوی پنل در پیوی: لیست گروه‌ها + (برای ادمین مادر) مدیریت عکس‌ها و استیکرها + تست صحبت
+    chatTestHandlers.endSession(ctx.from.id);
     await mediaPanelHandlers.openPrivateRoot(ctx);
+    return;
+  }
+
+  // اگر ادمین مادر در «حالت تست صحبت» باشد، هر متن دیگری مستقیم به هوش مصنوعی می‌رود
+  try {
+    await chatTestHandlers.handleIncomingText(ctx, text);
+  } catch (err) {
+    console.error('[chatTest] خطا:', err);
+    await ctx.reply(t('general.actionFailed')).catch(() => {});
   }
 }
 
@@ -174,10 +195,29 @@ cron.schedule('*/30 * * * * *', async () => {
   }
 });
 
+/** گزارش وضعیت تنظیمات کامنت‌گذاری در لاگ هنگام روشن شدن (برای عیب‌یابی سریع) */
+function logCommentaryStatus() {
+  const c = config.channelCommentary;
+  console.log(
+    `[channelCommentary] enabled=${c.enabled} | channelId=${c.channelId} | apiKey=${
+      c.openRouterApiKey ? 'set' : 'MISSING'
+    } | models=${c.openRouterModel} | delayMs=${c.delayMs}`
+  );
+  if (!c.enabled) {
+    console.log('[channelCommentary] خاموش است (CHANNEL_COMMENTARY_ENABLED=true نیست).');
+    return;
+  }
+  if (!c.channelId) console.error('[channelCommentary] ❌ CHANNEL_ID تنظیم نشده.');
+  if (!c.openRouterApiKey) console.error('[channelCommentary] ❌ OPENROUTER_API_KEY تنظیم نشده.');
+  aiClient.validatePersonality();
+}
+
 async function main() {
   await initDatabase();
   await groupRegistryService.ensureTable();
   await mediaService.ensureTables();
+  await meowService.ensureTable();
+  logCommentaryStatus();
   await bot.launch();
   console.log('🤖 ربات الینالیزه با موفقیت اجرا شد.');
 }
