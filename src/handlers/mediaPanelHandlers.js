@@ -191,6 +191,7 @@ async function openPrivateRoot(ctx) {
   if (isMother) {
     keyboard.push([{ text: '🖼 مدیریت عکس‌ها (پام پلیس)', callback_data: 'media_photos_menu' }]);
     keyboard.push([{ text: '🎭 مدیریت استیکرها', callback_data: 'media_st_menu' }]);
+    keyboard.push([{ text: '💬 تست صحبت با الینالیزه', callback_data: 'chat_start' }]);
   }
 
   if (!keyboard.length) {
