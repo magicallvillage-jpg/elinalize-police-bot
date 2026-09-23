@@ -3,11 +3,12 @@
 // و در صورت تطبیق، دسترسی لازم بررسی و handler مربوطه اجرا می‌شود.
 // نکته: طبق نیازمندی، با ربات فقط با فارسی می‌شود دستور داد؛ اگر هیچ الگویی تطبیق نخورد
 // و متن شامل حروف غیرفارسی/غیرمجاز باشد پیامی برای راهنمایی ارسال می‌شود.
+// نکته‌ی دیگر: دستور «پنل» دیگر داخل گروه کار نمی‌کند؛ پنل مدیریتی فقط از پیوی ربات
+// (با نوشتن «لیزه پنل» در چت خصوصی) در دسترس است.
 const roleService = require('../services/roleService');
 const rankCommands = require('./rankCommands');
 const userCommands = require('./userCommands');
 const adminCommands = require('./adminCommands');
-const panelHandlers = require('./panelHandlers');
 const meowCommands = require('./meowCommands');
 const { t } = require('../utils/messages');
 
@@ -125,11 +126,8 @@ const COMMANDS = [
     permission: 'special:admin',
     handler: (ctx, g, a, m) => adminCommands.removeInsultCommand(ctx, g, a, m[1]),
   },
-  {
-    regex: /^پنل$/,
-    permission: 'special:panel',
-    handler: (ctx, g) => panelHandlers.openPanel(ctx, g),
-  },
+  // توجه: دستور «پنل» عمداً از اینجا حذف شده - پنل مدیریتی دیگر از داخل گروه باز نمی‌شود،
+  // فقط با نوشتن «لیزه پنل» در پیوی خود ربات در دسترس است.
 ];
 
 /**

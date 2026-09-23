@@ -29,6 +29,10 @@ const config = {
   // این افراد قابلیت ساخت مقام، تعیین سطح دسترسی هر مقام و دسترسی کامل پنل را دارند
   motherAdminIds: parseIdList(process.env.MOTHER_ADMIN_IDS),
 
+  // گروه اصلی (اختیاری): آیدی عددی گروهی که می‌خواهید در بخش «مدیریت مقام‌ها»ی پنل
+  // همیشه اول لیست و با یک تیک ✅ کنار اسمش نمایش داده شود. مثال در .env: MAIN_GROUP_ID=-1001234567890
+  mainGroupId: process.env.MAIN_GROUP_ID ? Number(process.env.MAIN_GROUP_ID) : null,
+
   // پیشوند تمام جداولی که این ربات در دیتابیس مشترک می‌سازد
   tablePrefix: 'elinalize_',
 
@@ -80,6 +84,11 @@ const config = {
     enabled: (process.env.PAM_POLICE_ENABLED || 'true').toLowerCase() === 'true',
     messageThreshold: Number(process.env.PAM_POLICE_THRESHOLD || 60),
     loveIncreaseOnLick: 5,
+  },
+
+  // --- قابلیت ۴: ارسال خودکار تبلیغات بعد از N پیام در هر گروه (فاصله واقعی از پنل/دیتابیس خوانده می‌شود) ---
+  ads: {
+    enabled: (process.env.ADS_ENABLED || 'true').toLowerCase() === 'true',
   },
 
   logLevel: process.env.LOG_LEVEL || 'info',

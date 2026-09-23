@@ -1,5 +1,6 @@
 // این ماژول تمام callback_query های دکمه‌های شیشه‌ای ربات را مسیریابی می‌کند:
-// تایید/رد گزارش کاربران عادی، صفحه‌بندی لیست زندانی/مجرمین، و پنل مدیریت مقام‌ها.
+// تایید/رد گزارش کاربران عادی، صفحه‌بندی لیست زندانی/مجرمین، پنل مدیریت مقام‌ها،
+// و پنل مدیریت تبلیغات.
 const reportService = require('../services/reportService');
 const roleService = require('../services/roleService');
 const loveAngerService = require('../services/loveAngerService');
@@ -9,6 +10,7 @@ const panelHandlers = require('./panelHandlers');
 const funFeatures = require('./funFeatures');
 const mediaPanelHandlers = require('./mediaPanelHandlers');
 const chatTestHandlers = require('./chatTestHandlers');
+const adPanelHandlers = require('./adPanelHandlers');
 const { t } = require('../utils/messages');
 
 async function handleCallbackQuery(ctx) {
@@ -26,6 +28,11 @@ async function handleCallbackQuery(ctx) {
       await mediaPanelHandlers.handleCallback(ctx, action, args);
       return;
     }
+    // پنل مدیریت تبلیغات (فقط ادمین مادر در پیوی؛ بررسی دسترسی داخل خود ماژول انجام می‌شود)
+    if (action.startsWith('ad_')) {
+      await adPanelHandlers.handleCallback(ctx, action, args);
+      return;
+    }
 
     switch (action) {
       case 'report_approve':
@@ -41,6 +48,14 @@ async function handleCallbackQuery(ctx) {
       case 'criminal_list':
         await ctx.answerCbQuery();
         await rankCommands.criminalListCommand(ctx, groupId, Number(args[0]));
+        break;
+      case 'rank_mgmt_root':
+        await ctx.answerCbQuery();
+        await mediaPanelHandlers.showRankManagementGroups(ctx);
+        break;
+      case 'panel_rank_group':
+        await ctx.answerCbQuery();
+        await panelHandlers.openPanel(ctx, Number(args[0]));
         break;
       case 'panel_rank':
         await ctx.answerCbQuery();

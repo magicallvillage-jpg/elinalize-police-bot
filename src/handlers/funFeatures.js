@@ -1,20 +1,24 @@
-// این ماژول دو قابلیت سرگرمی را پیاده می‌کند:
+// این ماژول قابلیت‌های سرگرمی/تبلیغاتی زیر را پیاده می‌کند:
 // - ارسال یک استیکر تصادفی (یا مجموعه‌ای از استیکرهای چندبخشی) بعد از N پیام در گروه.
 // - شوخی "پام پلیس": بعد از N پیام، به آخرین کسی که پیام داده ریپلای می‌زند و یک دکمه
-//   "لیس زدن" می‌گذارد که فقط خود آن شخص می‌تواند بزند و ۵٪ علاقه بگیرد.
+//   "لیس زدن" می‌گذارد که فقط خود آن شخص می‌تواند بزند و ۵٪ علاقه بگیرد. عکس این شوخی
+//   با اسپویلر (has_spoiler) فرستاده می‌شود تا اول توی چت پنهان باشد و کاربر خودش باز کند.
+// - ارسال خودکار تبلیغات: بعد از N پیام (قابل تنظیم از پنل)، یکی از تبلیغ‌های فعال به‌صورت
+//   تصادفی در گروه فرستاده می‌شود؛ این کار به‌صورت مداوم و پشت‌سرهم تکرار می‌شود.
 //
 // شمارنده هر گروه در حافظه (RAM) نگهداری می‌شود، چون این فقط برای یک بازی/شوخی زودگذر
-// است و از دست رفتنش با ری‌استارت ربات مشکلی ایجاد نمی‌کند.
+// یا یک آستانه‌ی ارسال است و از دست رفتنش با ری‌استارت ربات مشکلی ایجاد نمی‌کند.
 const config = require('../config');
 const mediaService = require('../services/mediaService');
 const loveAngerService = require('../services/loveAngerService');
+const adService = require('../services/adService');
 const { t } = require('../utils/messages');
 const { mentionUser, pickRandom } = require('../utils/helpers');
 
-const counters = new Map(); // groupId -> { stickerCount, pamCount }
+const counters = new Map(); // groupId -> { stickerCount, pamCount, adCount }
 
 function getCounters(groupId) {
-  if (!counters.has(groupId)) counters.set(groupId, { stickerCount: 0, pamCount: 0 });
+  if (!counters.has(groupId)) counters.set(groupId, { stickerCount: 0, pamCount: 0, adCount: 0 });
   return counters.get(groupId);
 }
 
@@ -45,6 +49,15 @@ async function handleGroupActivity(ctx) {
       await triggerPamPolice(ctx, ctx.from).catch((err) => console.error('[pamPolice] خطا:', err.message));
     }
   }
+
+  if (config.ads.enabled) {
+    c.adCount += 1;
+    const interval = await adService.getIntervalMessages().catch(() => null);
+    if (interval && c.adCount >= interval) {
+      c.adCount = 0;
+      await sendRandomAd(ctx).catch((err) => console.error('[ads] خطا:', err.message));
+    }
+  }
 }
 
 /** ارسال یک بسته استیکر تصادفی (تکی یا چندبخشی به ترتیب) */
@@ -60,7 +73,7 @@ async function sendStickerBurst(ctx) {
   }
 }
 
-/** شروع شوخی "پام پلیس" روی آخرین فرستنده پیام */
+/** شروع شوخی "پام پلیس" روی آخرین فرستنده پیام - عکس با اسپویلر فرستاده می‌شود */
 async function triggerPamPolice(ctx, targetUser) {
   const caption = t('userCommands.pamPolice.caption', { target: mentionUser(targetUser) });
   const keyboard = {
@@ -77,6 +90,7 @@ async function triggerPamPolice(ctx, targetUser) {
       await ctx.telegram.sendPhoto(ctx.chat.id, pickRandom(photos), {
         caption,
         parse_mode: 'HTML',
+        has_spoiler: true,
         reply_markup: keyboard,
       });
       return;
@@ -105,6 +119,19 @@ async function handlePamLick(ctx, groupId, targetUserId) {
   await ctx.telegram.sendMessage(groupId, t('userCommands.pamPolice.lickReport', { target: mentionUser(ctx.from) }), {
     parse_mode: 'HTML',
   });
+}
+
+/** ارسال یک تبلیغ تصادفی از بین تبلیغ‌های فعال به همین گروه (بعد از رسیدن به آستانه پیام) */
+async function sendRandomAd(ctx) {
+  const ads = await adService.getEnabledAds();
+  if (!ads.length) return; // هنوز هیچ تبلیغ فعالی ساخته نشده
+
+  const ad = pickRandom(ads);
+  const extra = {};
+  if (ad.buttons.length) {
+    extra.reply_markup = { inline_keyboard: ad.buttons.map((b) => [{ text: b.text, url: b.url }]) };
+  }
+  await ctx.telegram.sendMessage(ctx.chat.id, ad.content, extra);
 }
 
 module.exports = { handleGroupActivity, handlePamLick };

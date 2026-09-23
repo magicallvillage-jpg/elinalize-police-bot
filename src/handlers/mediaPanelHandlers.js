@@ -5,11 +5,22 @@
 //       تکی      (single)   → هر استیکری که بفرستی یک بسته‌ی مستقل می‌شود.
 //       چندبخشی (sequence) → چند استیکر به ترتیب جمع می‌شوند و با دکمه «ذخیره بسته» یک بسته می‌شوند.
 //
+// این فایل همچنین ریشه‌ی پنل در پیوی ("لیزه پنل") را می‌سازد:
+//   - برای ادمین مادر: یک منوی اصلی با بخش‌های «مدیریت مقام‌ها»، «مدیریت عکس‌ها»،
+//     «مدیریت استیکرها»، «مدیریت تبلیغات» و «تست صحبت».
+//   - برای مقام‌دارانی که فقط دسترسی panelAccess دارند: مستقیم لیست گروه‌های مجازشان
+//     (همون چیزی که قبلاً از منوی اصلی می‌دیدند، الان زیر «مدیریت مقام‌ها»ست).
+// طبق نیازمندی، پنل دیگر از داخل خود گروه باز نمی‌شود؛ فقط از پیوی ربات در دسترس است.
+//
 // وضعیت «حالت افزودن» (session) فقط در RAM نگهداری می‌شود و بعد از ۳۰ دقیقه بی‌فعالیتی یا ری‌استارت ربات
 // پاک می‌شود؛ خود عکس‌ها/استیکرهای ذخیره‌شده در دیتابیس می‌مانند.
 const roleService = require('../services/roleService');
 const groupRegistryService = require('../services/groupRegistryService');
 const mediaService = require('../services/mediaService');
+const config = require('../config');
+const adPanelHandlers = require('./adPanelHandlers');
+const panelHandlers = require('./panelHandlers');
+const { t } = require('../utils/messages');
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const STATUS_DEBOUNCE_MS = 700; // برای آلبوم/ارسال پشت‌سرهم: فقط یک پیام وضعیت بعد از آخرین آیتم
@@ -175,36 +186,93 @@ async function refreshStatusInPlace(ctx, s) {
 
 // ===================== منوها =====================
 
-/** منوی اصلی پنل در پیوی: لیست گروه‌ها (مثل قبل) + برای ادمین مادر دکمه‌های عکس/استیکر */
+/** ریشه‌ی پنل در پیوی. ادمین مادر منوی کامل می‌بیند؛ بقیه (اگر panelAccess داشته باشند) مستقیم لیست گروه‌ها را می‌بینند. */
 async function openPrivateRoot(ctx) {
   const userId = ctx.from.id;
   const isMother = roleService.isMotherAdmin(userId);
   if (isMother) {
     endSession(userId);
+    adPanelHandlers.endSession(userId);
     await cleanupPreviews(ctx.telegram, ctx.chat.id, userId);
   }
 
-  const groups = await groupRegistryService.listGroupsForPanelAccess(userId, isMother);
-  const keyboard = groups.map((g) => [
-    { text: g.title || String(g.group_id), callback_data: `panel_select_group:${g.group_id}` },
-  ]);
-  if (isMother) {
-    keyboard.push([{ text: '🖼 مدیریت عکس‌ها (پام پلیس)', callback_data: 'media_photos_menu' }]);
-    keyboard.push([{ text: '🎭 مدیریت استیکرها', callback_data: 'media_st_menu' }]);
-    keyboard.push([{ text: '💬 تست صحبت با الینالیزه', callback_data: 'chat_start' }]);
-  }
-
-  if (!keyboard.length) {
-    await showScreen(ctx, 'هیچ گروهی که توش دسترسی پنل داشته باشی پیدا نکردم.', []);
+  if (!isMother) {
+    await showRankManagementGroups(ctx);
     return;
   }
-  let text = 'کدوم گروه رو می‌خوای مدیریت کنی؟';
-  if (isMother) {
-    text = groups.length
-      ? 'کدوم گروه رو می‌خوای مدیریت کنی؟\n(یا از دکمه‌های پایین، عکس‌ها و استیکرهای ربات رو مدیریت کن)'
-      : '🛠 پنل مدیریت ربات:';
+
+  const keyboard = [
+    [{ text: '🎖 مدیریت مقام‌ها', callback_data: 'rank_mgmt_root' }],
+    [{ text: '🖼 مدیریت عکس‌ها (پام پلیس)', callback_data: 'media_photos_menu' }],
+    [{ text: '🎭 مدیریت استیکرها', callback_data: 'media_st_menu' }],
+    [{ text: '📢 مدیریت تبلیغات', callback_data: 'ad_menu' }],
+    [{ text: '💬 تست صحبت با الینالیزه', callback_data: 'chat_start' }],
+  ];
+  await showScreen(ctx, '🛠 پنل مدیریت ربات:', keyboard);
+}
+
+// ===================== مدیریت مقام‌ها: لیست گروه‌ها و اطلاعات گروه =====================
+
+/** لیست گروه‌هایی که کاربر بهشون دسترسی پنل داره؛ گروه اصلی (MAIN_GROUP_ID در .env) با ✅ و اول لیست میاد */
+async function showRankManagementGroups(ctx) {
+  const userId = ctx.from.id;
+  const isMother = roleService.isMotherAdmin(userId);
+  const groups = await groupRegistryService.listGroupsForPanelAccess(userId, isMother);
+
+  if (!groups.length) {
+    await showScreen(
+      ctx,
+      'هیچ گروهی که توش دسترسی مدیریت مقام‌ها داشته باشی پیدا نکردم.',
+      isMother ? [[{ text: '⬅️ بازگشت', callback_data: 'media_root' }]] : []
+    );
+    return;
   }
-  await showScreen(ctx, text, keyboard);
+
+  const mainId = config.mainGroupId;
+  const sorted = [...groups].sort((a, b) => {
+    const aMain = mainId && Number(a.group_id) === Number(mainId) ? 0 : 1;
+    const bMain = mainId && Number(b.group_id) === Number(mainId) ? 0 : 1;
+    return aMain - bMain;
+  });
+
+  const keyboard = sorted.map((g) => {
+    const isMain = mainId && Number(g.group_id) === Number(mainId);
+    const label = `${isMain ? '✅ ' : ''}${g.title || String(g.group_id)}`;
+    return [{ text: label, callback_data: `panel_select_group:${g.group_id}` }];
+  });
+  if (isMother) keyboard.push([{ text: '⬅️ بازگشت', callback_data: 'media_root' }]);
+
+  await showScreen(ctx, '🎖 مدیریت مقام‌ها\nکدوم گروه رو می‌خوای مدیریت کنی؟', keyboard);
+}
+
+/** نمایش اطلاعات کلی یک گروه قبل از ورود به مدیریت مقام‌هاش (اسم، آیدی، تعداد اعضا، لینک در صورت وجود) */
+async function showGroupOverview(ctx, groupId) {
+  if (!(await panelHandlers.canOpenPanel(groupId, ctx.from.id))) {
+    await ctx.reply(t('general.noPermission'));
+    return;
+  }
+
+  const chat = await ctx.telegram.getChat(groupId).catch(() => null);
+  let inviteLink = (chat && chat.invite_link) || null;
+  if (!inviteLink) {
+    inviteLink = await ctx.telegram.exportChatInviteLink(groupId).catch(() => null);
+  }
+  const memberCount = await ctx.telegram.getChatMembersCount(groupId).catch(() => null);
+  const mainId = config.mainGroupId;
+  const isMain = mainId && Number(groupId) === Number(mainId);
+
+  let text = `🏘 اطلاعات گروه${isMain ? ' (گروه اصلی ✅)' : ''}\n\n`;
+  text += `نام: ${(chat && chat.title) || 'نامشخص'}\n`;
+  text += `آیدی: ${groupId}\n`;
+  text += `تعداد اعضا: ${memberCount !== null ? memberCount : 'نامشخص'}\n`;
+  text += inviteLink
+    ? `لینک: ${inviteLink}`
+    : 'لینک دعوت در دسترس نیست (احتمالاً ربات دسترسی «دعوت با لینک» رو در این گروه نداره).';
+
+  await showScreen(ctx, text, [
+    [{ text: '🎖 مدیریت مقام‌های این گروه', callback_data: `panel_rank_group:${groupId}` }],
+    [{ text: '⬅️ بازگشت به لیست گروه‌ها', callback_data: 'rank_mgmt_root' }],
+  ]);
 }
 
 async function showPhotosMenu(ctx) {
@@ -623,6 +691,8 @@ async function handleCallback(ctx, action, args) {
 
 module.exports = {
   openPrivateRoot,
+  showRankManagementGroups,
+  showGroupOverview,
   handleIncomingPhoto,
   handleIncomingSticker,
   handleCallback,

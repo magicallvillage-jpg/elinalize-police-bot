@@ -164,6 +164,29 @@ async function initDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // پست‌های تبلیغاتی: متن + دکمه‌های شیشه‌ای اختیاری (فقط متن+لینک هر دکمه - تلگرام رنگ دکمه رو
+  // قابل تنظیم نمی‌ذاره). enabled=FALSE یعنی موقتاً از چرخه ارسال خودکار خارج است ولی حذف نشده.
+  await query(`
+    CREATE TABLE IF NOT EXISTS ${P}ads (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      content TEXT NOT NULL,
+      buttons JSON DEFAULT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_by BIGINT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  // تنظیمات سراسری تبلیغات: بعد از هر چند پیام در هر گروه، یک تبلیغ فعال (تصادفی) فرستاده شود.
+  // فقط یک ردیف (id=1) دارد و از پنل مدیریتی قابل تغییر است.
+  await query(`
+    CREATE TABLE IF NOT EXISTS ${P}ad_settings (
+      id INT PRIMARY KEY,
+      interval_messages INT NOT NULL DEFAULT 100,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
   console.log('[DB] تمام جداول الینالیزه بررسی/ساخته شدند.');
 }
 

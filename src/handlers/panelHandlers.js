@@ -1,7 +1,9 @@
 // پنل مدیریت گرافیکی (دکمه‌های شیشه‌ای) برای ادمین‌های مادر و مقام‌دارانی که panelAccess دارند.
 // از این پنل می‌توان: لیست مقام‌ها را دید، سطح دسترسی هر مقام را تیک زد/برداشت،
 // و سطح (priority) مقام را برای سلسله‌مراتب تغییر داد.
-// طبق نیازمندی، این پنل هم داخل گروه و هم در پیوی ادمین مادر در دسترس است.
+// طبق نیازمندی، این پنل دیگر از داخل خود گروه باز نمی‌شود؛ فقط از پیوی ربات (بعد از انتخاب
+// گروه از بخش «مدیریت مقام‌ها») در دسترس است. ctx در این حالت متعلق به چت خصوصی ادمین است،
+// نه گروه، و groupId جداگانه پاس داده می‌شود.
 const roleService = require('../services/roleService');
 const { t } = require('../utils/messages');
 const { setPendingAction, getPendingAction, clearPendingAction } = require('../utils/pendingActions');
@@ -37,7 +39,7 @@ async function canRenameRank(groupId, userId) {
   return Boolean(rank && rank.permissions.renameRank);
 }
 
-/** نمایش صفحه اصلی پنل: لیست مقام‌های گروه */
+/** نمایش صفحه اصلی پنل: لیست مقام‌های گروه (فقط از پیوی صدا زده می‌شود) */
 async function openPanel(ctx, groupId) {
   if (!(await canOpenPanel(groupId, ctx.from.id))) {
     await ctx.reply(t('general.noPermission'));
@@ -48,6 +50,7 @@ async function openPanel(ctx, groupId) {
     { text: `${r.name} (سطح ${r.priority})`, callback_data: `panel_rank:${groupId}:${r.id}` },
   ]);
   buttons.push([{ text: '➕ راهنمای ساخت مقام جدید', callback_data: `panel_help_create:${groupId}` }]);
+  buttons.push([{ text: '⬅️ بازگشت به اطلاعات گروه', callback_data: `panel_select_group:${groupId}` }]);
 
   await ctx.reply('🛠 پنل مدیریت مقام‌های گروه:', {
     reply_markup: { inline_keyboard: buttons },
@@ -168,6 +171,7 @@ async function backToPanelList(ctx, groupId) {
     { text: `${r.name} (سطح ${r.priority})`, callback_data: `panel_rank:${groupId}:${r.id}` },
   ]);
   buttons.push([{ text: '➕ راهنمای ساخت مقام جدید', callback_data: `panel_help_create:${groupId}` }]);
+  buttons.push([{ text: '⬅️ بازگشت به اطلاعات گروه', callback_data: `panel_select_group:${groupId}` }]);
   await ctx.editMessageText('🛠 پنل مدیریت مقام‌های گروه:', { reply_markup: { inline_keyboard: buttons } });
 }
 

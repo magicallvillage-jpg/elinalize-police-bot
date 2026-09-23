@@ -21,6 +21,7 @@ const channelCommentaryHandler = require('./handlers/channelCommentaryHandler');
 const funFeatures = require('./handlers/funFeatures');
 const mediaPanelHandlers = require('./handlers/mediaPanelHandlers');
 const chatTestHandlers = require('./handlers/chatTestHandlers');
+const adPanelHandlers = require('./handlers/adPanelHandlers');
 
 const groupRegistryService = require('./services/groupRegistryService');
 const mediaService = require('./services/mediaService');
@@ -42,7 +43,7 @@ bot.use(banEnforcementMiddleware);
 
 // --- روی هر پیام گروه (هر نوعی: متن، عکس، استیکر و ...) اجرا می‌شود ---
 // ۱) تشخیص پست‌های فورواردشده خودکار از کانال تنظیم‌شده (برای کامنت‌گذاری هوش مصنوعی)
-// ۲) شمارش پیام‌ها برای قابلیت‌های سرگرمی (استیکر بعد از N پیام / پام پلیس)
+// ۲) شمارش پیام‌ها برای قابلیت‌های سرگرمی/تبلیغاتی (استیکر بعد از N پیام / پام پلیس / تبلیغات)
 bot.on('message', async (ctx, next) => {
   await channelCommentaryHandler.detectAndSchedule(ctx).catch((err) => console.error('[channelCommentary]', err));
   await funFeatures.handleGroupActivity(ctx).catch((err) => console.error('[funFeatures]', err));
@@ -56,7 +57,7 @@ bot.start(async (ctx) => {
       'سلام! من الینالیزه‌ام 🤖💗\n' +
         'من رو به یک گروه اضافه کن و ادمینم کن تا بتونم مدیریتش کنم.\n' +
         'داخل گروه با گفتن «لیزه» یا «الینالیزه» قبل از دستورت باهام صحبت کن (فقط فارسی).\n' +
-        'اگه ادمین مادر هستی، اینجا در پیوی هم می‌تونی با نوشتن «لیزه پنل» به پنل مدیریت گروه‌هات دسترسی داشته باشی.'
+        'اگه ادمین مادر هستی، اینجا در پیوی هم می‌تونی با نوشتن «لیزه پنل» به پنل مدیریت ربات دسترسی داشته باشی.'
     );
   }
 });
@@ -66,7 +67,7 @@ bot.on('text', async (ctx) => {
   const text = ctx.message.text;
   if (!text) return;
 
-  // پیوی: دستور پنل + حالت «تست صحبت با الینالیزه» (فقط ادمین مادر)
+  // پیوی: دستور پنل + حالت «تست صحبت با الینالیزه» + ساخت/تنظیم تبلیغ (فقط ادمین مادر)
   if (ctx.chat.type === 'private') {
     await handlePrivateText(ctx, text);
     return;
@@ -129,9 +130,21 @@ async function handlePrivateText(ctx, text) {
   const rest = matchedWord ? trimmed.slice(matchedWord.length).trim() : '';
 
   if (matchedWord && rest === 'پنل') {
-    // منوی پنل در پیوی: لیست گروه‌ها + (برای ادمین مادر) مدیریت عکس‌ها و استیکرها + تست صحبت
+    // منوی پنل در پیوی: مدیریت مقام‌ها + (برای ادمین مادر) عکس‌ها، استیکرها، تبلیغات و تست صحبت.
+    // این کار به‌عنوان یک «راه فرار» همیشه هر جلسه‌ی در حال انجام (تست صحبت / ساخت تبلیغ) را می‌بندد.
     chatTestHandlers.endSession(ctx.from.id);
+    adPanelHandlers.endSession(ctx.from.id);
     await mediaPanelHandlers.openPrivateRoot(ctx);
+    return;
+  }
+
+  // اگر ادمین مادر در حال ساخت/تنظیم یک تبلیغ باشد، متن بعدی برای همون فلو مصرف می‌شود
+  try {
+    const handledAd = await adPanelHandlers.handleIncomingText(ctx, text);
+    if (handledAd) return;
+  } catch (err) {
+    console.error('[adPanel] خطا:', err);
+    await ctx.reply(t('general.actionFailed')).catch(() => {});
     return;
   }
 
@@ -167,9 +180,10 @@ bot.on('sticker', async (ctx) => {
 bot.on('callback_query', async (ctx) => {
   const data = ctx.callbackQuery.data || '';
   if (data.startsWith('panel_select_group:')) {
+    // انتخاب یک گروه از لیست «مدیریت مقام‌ها»: اول اطلاعات کلی گروه نمایش داده می‌شود
     const groupId = Number(data.split(':')[1]);
     await ctx.answerCbQuery();
-    await panelHandlers.openPanel(ctx, groupId);
+    await mediaPanelHandlers.showGroupOverview(ctx, groupId);
     return;
   }
   await callbackHandler.handleCallbackQuery(ctx);
@@ -218,6 +232,7 @@ async function main() {
   await mediaService.ensureTables();
   await meowService.ensureTable();
   logCommentaryStatus();
+  console.log(`[ads] enabled=${config.ads.enabled} | mainGroupId=${config.mainGroupId || 'تنظیم نشده'}`);
   await bot.launch();
   console.log('🤖 ربات الینالیزه با موفقیت اجرا شد.');
 }
